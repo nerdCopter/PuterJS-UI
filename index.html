@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Gemini 2.5 Flash</title>
+  <title></title> <!-- Placeholder title removed -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://js.puter.com/v2/"></script>
   <style>
     body { font-family: Arial, sans-serif; background: #f6f8fa; margin: 0; padding: 0; }
-    #container { max-width: 700px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; }
+    #container { width: 80vw; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; }
     #messages { min-height: 200px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 16px; }
     .msg { margin: 12px 0; }
     .msg.user { text-align: right; color: #2563eb; }
@@ -27,15 +27,55 @@
     #file-input { display: none; }
     #attached-file { font-size: 0.95em; color: #374151; margin-right: 8px; margin-top: 2px; }
     .markdown-body { font-size: 1em; }
-    .markdown-body pre, .markdown-body code { background: #f6f8fa; border-radius: 5px; padding: 2px 6px; }
-    .markdown-body pre { padding: 8px; }
+    /* Base styles for markdown code/pre */
+    .markdown-body pre, .markdown-body code {
+      border-radius: 5px;
+      padding: 2px 6px;
+    }
+    .markdown-body pre {
+      padding: 8px;
+    }
+    /* Specific background for AI message code/pre */
+    .msg.ai .markdown-body pre,
+    .msg.ai .markdown-body code {
+      background: #e9ecef; /* Lighter gray for AI code blocks */
+    }
+     /* Specific background for User message code/pre */
+    .msg.user .markdown-body pre,
+    .msg.user .markdown-body code {
+      background: #c6dafc; /* A shade lighter than user bubble #dbeafe */
+    }
     .markdown-body a { color: #2563eb; }
     #unload-btn { display: none; }
+
+    /* Style for the copy button */
+    .copy-code-btn {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 4px 8px;
+      font-size: 0.8em;
+      cursor: pointer;
+      background-color: #e9ecef; /* Match AI code block background */
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      color: #495057;
+      float: right; /* Position to the right */
+      clear: both; /* Ensure it's below the pre if pre is block */
+      user-select: none; /* Prevent text selection on the button */
+    }
+
+    .copy-code-btn:hover {
+      background-color: #dee2e6;
+    }
+
+    .copy-code-btn:active {
+      background-color: #ced4da;
+    }
   </style>
 </head>
 <body>
   <div id="container">
-    <h2>Gemini 2.5 Flash</h2>
+    <h2 id="chat-title"></h2> <!-- Added ID for dynamic update -->
     <div id="messages"></div>
     <div id="input-row">
       <span id="attached-file"></span>
@@ -54,10 +94,25 @@
     const unloadBtn = document.getElementById('unload-btn');
     const fileInput = document.getElementById('file-input');
     const attachedFileSpan = document.getElementById('attached-file');
+    const chatTitle = document.getElementById('chat-title'); // Get the chat title element
 
     let fileContentPrompt = null;
     let fileNamePrompt = null;
+    let fileName = null;
+    // chatHistory will now store objects in the format expected by the API
     let chatHistory = [];
+
+    // Reusable variable for the file analysis prompt template
+    const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` internally. Brief your findings. Wait for my request.`;
+
+    // Define model and temperature
+    const modelName = 'google/gemini-2.5-flash-preview:thinking';
+    const temperatureValue = 0.3;
+
+    // Update the document title and chat header on load
+    document.title = `${modelName} (Temp: ${temperatureValue})`;
+    chatTitle.textContent = `${modelName.split('/').pop().split(':')[0]} (Temp: ${temperatureValue})`;
+
 
     function renderMarkdown(md) {
       const div = document.createElement('div');
@@ -66,19 +121,41 @@
       return div;
     }
 
-    function addMessage(text, sender = 'user') {
+    function addMessage(text, sender = 'user', isStreamingPlaceholder = false) {
+      console.log(`Adding message: "${text}" from ${sender}. Is placeholder: ${isStreamingPlaceholder}`); // Log message being added
       const msgDiv = document.createElement('div');
       msgDiv.className = `msg ${sender}`;
       let bubble = `<div class="bubble"></div>`;
       msgDiv.innerHTML = bubble;
+      const bubbleElement = msgDiv.querySelector('.bubble'); // Get the bubble element
+
       if (text) {
-        msgDiv.querySelector('.bubble').appendChild(renderMarkdown(text));
+        if (isStreamingPlaceholder) {
+           bubbleElement.innerHTML = text; // Add "Thinking..." directly
+        } else {
+          const renderedContent = renderMarkdown(text);
+          bubbleElement.appendChild(renderedContent); // Append the rendered markdown
+
+          // If it's a completed AI message, add copy buttons to code blocks
+          if (sender === 'ai') {
+            const codeBlocks = renderedContent.querySelectorAll('pre');
+            codeBlocks.forEach(pre => {
+              const copyBtn = document.createElement('button');
+              copyBtn.className = 'copy-code-btn';
+              copyBtn.textContent = '📋 Copy'; // Clipboard icon and text
+              // Insert the button after the pre element
+              pre.parentNode.insertBefore(copyBtn, pre.nextSibling);
+            });
+          }
+        }
       }
       messagesDiv.appendChild(msgDiv);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return bubbleElement; // Return the bubble element for streaming updates
     }
 
     function updateUnloadBtn() {
+      console.log(`Updating unload button visibility. fileContentPrompt: ${!!fileContentPrompt}, fileNamePrompt: ${!!fileNamePrompt}`); // Log unload button state
       if (fileContentPrompt || fileNamePrompt) {
         unloadBtn.style.display = "inline-block";
       } else {
@@ -86,62 +163,132 @@
       }
     }
 
+    function updateUserInputBox() {
+      console.log(`Updating user input box. Current fileName: ${fileName}`); // Log input box state
+      if (fileName) {
+        // Use the reusable variable here
+        userInput.value = fileAnalysisPromptTemplate(fileName);
+        // Removed: userInput.readOnly = true; // Allow editing when file is loaded
+      } else {
+        userInput.value = '';
+        userInput.placeholder = 'Type your message or attach a file...';
+        userInput.readOnly = false;
+      }
+    }
+
     unloadBtn.onclick = () => {
+      console.log("Unload button clicked. Clearing file state."); // Log unload action
       fileContentPrompt = null;
       fileNamePrompt = null;
+      fileName = null;
       attachedFileSpan.textContent = '';
       updateUnloadBtn();
+      updateUserInputBox();
     };
 
     async function sendMessage() {
+      console.log("sendMessage called."); // Log sendMessage start
       let text = userInput.value.trim();
+      let userMessageForDisplay = text; // What the user sees they sent
+      let messageContentForModel = text; // What is actually sent to the AI
 
-      if (fileContentPrompt) {
-        addMessage(fileNamePrompt, 'user');
-        text = fileContentPrompt;
-      } else if (text) {
-        addMessage(text, 'user');
-      } else {
+      // Check if a file is currently attached and this is the initial send
+      if (fileContentPrompt && fileName) {
+        console.log(`File attached. Preparing message with file content for model.`); // Log file handling
+        // Construct the full message for the model including the file content
+        messageContentForModel = `${userInput.value}\n\n${fileContentPrompt}`; // Use current input value + file content
+        // The user input box already contains the analysis prompt (or modified text), so display that
+        userMessageForDisplay = userInput.value;
+
+        // Clear the file state immediately after constructing the message for this turn
+        console.log("Clearing file state after sending."); // Log file state clear
+        fileContentPrompt = null;
+        fileNamePrompt = null;
+        fileName = null;
+        attachedFileSpan.textContent = '';
+        updateUnloadBtn();
+        updateUserInputBox(); // Reset input box and state
+      } else if (!text) {
+        // If no file is attached and the input is empty, do nothing
+        console.log("Input is empty, not sending message."); // Log empty message attempt
         return;
       }
 
-      const msgs = [];
-      for (const entry of chatHistory) {
-        msgs.push({ role: entry.sender === 'user' ? 'user' : 'assistant', content: entry.text });
-      }
-      msgs.push({ role: 'user', content: text });
+      // Add the user message to the display
+      addMessage(userMessageForDisplay, 'user');
 
-      const aiDiv = document.createElement('div');
-      aiDiv.className = 'msg ai';
-      aiDiv.innerHTML = `<div class="bubble" id="ai-bubble"><em>Thinking...</em></div>`;
-      messagesDiv.appendChild(aiDiv);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      // Add the user message content (what was sent to the model) to chat history
+      chatHistory.push({ role: 'user', content: messageContentForModel });
+
+      // Build the messages array for the API directly from chatHistory
+      const msgs = [...chatHistory]; // Create a copy to send
+
+      console.log("Sending message to AI:", msgs); // Log the message being sent to AI
+
+      // Show AI placeholder and get a reference to its bubble
+      const aiBubbleElement = addMessage("<em>Thinking...</em>", 'ai', true);
+
 
       try {
         const response = await puter.ai.chat(
           msgs,
-          { model: 'google/gemini-2.5-flash-preview:thinking', stream: true }
+          {
+              model: modelName, // Use the defined model variable
+              stream: true,
+              temperature: temperatureValue // Use the defined temperature variable
+            }
         );
+        console.log("AI response received (stream)."); // Log response start
         let aiText = '';
+        const aiBubble = document.getElementById('ai-bubble'); // Get reference once
+
         for await (const part of response) {
           if (part?.text) {
             aiText += part.text;
-            document.getElementById('ai-bubble').innerHTML = '';
-            document.getElementById('ai-bubble').appendChild(renderMarkdown(aiText));
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            // Update the specific AI bubble with streamed content
+            if (aiBubbleElement) {
+                aiBubbleElement.innerHTML = ''; // Clear "Thinking..."
+                aiBubbleElement.appendChild(renderMarkdown(aiText));
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+            // console.log("Streamed part:", part.text); // Log each streamed part (optional, can be noisy)
           }
         }
-        chatHistory.push({ sender: 'ai', text: aiText });
+        console.log("AI response stream finished. Final text:", aiText); // Log final AI text
+
+        // After streaming is complete, re-render the final AI message to add copy buttons
+        if (aiBubbleElement) {
+             aiBubbleElement.innerHTML = ''; // Clear the streamed content
+             aiBubbleElement.appendChild(renderMarkdown(aiText)); // Render final markdown with code blocks
+             // Manually add copy buttons after final render
+             const codeBlocks = aiBubbleElement.querySelectorAll('pre');
+             codeBlocks.forEach(pre => {
+               const copyBtn = document.createElement('button');
+               copyBtn.className = 'copy-code-btn';
+               copyBtn.textContent = '📋 Copy';
+               pre.parentNode.insertBefore(copyBtn, pre.nextSibling);
+             });
+        }
+
+
+        // Add the completed AI message to chat history
+        chatHistory.push({ role: 'assistant', content: aiText });
+        console.log("Chat history updated:", chatHistory); // Log updated chat history
+
       } catch (e) {
-        document.getElementById('ai-bubble').innerHTML = `<span style="color:red;">Error: ${e.message}</span>`;
+        console.error("Error during AI chat:", e); // Log any errors
+        if (aiBubbleElement) {
+            aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${e.message}</span>`;
+        }
+        // Optionally, add an error message to chat history as an AI turn
+        chatHistory.push({ role: 'assistant', content: `Error: ${e.message}` });
+        console.log("Chat history updated with error:", chatHistory);
       }
 
-      chatHistory.push({ sender: 'user', text });
-      userInput.value = '';
-      fileContentPrompt = null;
-      fileNamePrompt = null;
-      attachedFileSpan.textContent = '';
-      updateUnloadBtn();
+      // Clear the input box after sending (unless it was already cleared by file logic)
+      if (!fileName) { // Check fileName again, as it was cleared if a file was sent
+         userInput.value = '';
+      }
     }
 
     sendBtn.onclick = sendMessage;
@@ -152,64 +299,111 @@
     attachBtn.onclick = () => fileInput.click();
 
     fileInput.onchange = async (e) => {
-      console.log("File input changed");
+      console.log("File input changed."); // Log file input change
       const file = e.target.files[0];
       if (!file) {
-        console.log("No file selected");
+        console.log("No file selected."); // Log no file selected
         return;
       }
+      console.log(`Selected file: ${file.name}, type: ${file.type}`); // Log selected file details
       try {
         if (
           file.type.startsWith('text/') ||
           file.name.endsWith('.js') ||
           file.name.endsWith('.rs') ||
-          file.name.endsWith('.txt')
+          file.name.endsWith('.txt') ||
+          file.name.endsWith('.md') || // Added markdown file support
+          file.name.endsWith('.html') || // Added html file support
+          file.name.endsWith('.css') // Added css file support
         ) {
+          console.log("Reading text file."); // Log text file reading
           const text = await file.text();
-          fileContentPrompt = `Analyze ${file.name}. Confirm receipt and wait for my request.\n\n${text}`;
+          fileContentPrompt = text; // Only the file content, not the analyze message
           fileNamePrompt = `(${file.name})`;
+          fileName = file.name;
           attachedFileSpan.textContent = `Loaded: ${file.name}`;
-          userInput.value = '';
+          console.log(`File loaded: ${file.name}`); // Log successful file load
           updateUnloadBtn();
+          updateUserInputBox();
         } else if (file.type.startsWith('image/')) {
-          console.log("Uploading file...");
+          console.log("Image file detected. Attempting upload."); // Log image handling
           const uploadedFiles = await puter.fs.upload(e.target.files);
-          console.log("Upload response:", uploadedFiles);
           const uploaded = Array.isArray(uploadedFiles) ? uploadedFiles[0] : uploadedFiles;
-          if (uploaded && uploaded.url) {
-            console.log("Public URL:", uploaded.url);
-          } else if (uploaded && uploaded.path) {
-            console.log("No public URL. Only virtual path:", uploaded.path);
-          } else {
-            console.log("No file object returned from upload");
-          }
           alert(
             "Image uploaded to: " +
               (uploaded.url || uploaded.path) +
               "\nYou need a public URL to send to Gemini."
           );
+          console.log(`Image uploaded: ${uploaded.url || uploaded.path}`); // Log image upload success
           attachedFileSpan.textContent = '';
           fileContentPrompt = null;
           fileNamePrompt = null;
+          fileName = null;
           updateUnloadBtn();
+          updateUserInputBox();
         } else {
+          console.warn(`Unsupported file type: ${file.type}`); // Log unsupported file type
           alert("Unsupported file type for direct Gemini input.");
           attachedFileSpan.textContent = '';
           fileContentPrompt = null;
           fileNamePrompt = null;
+          fileName = null;
           updateUnloadBtn();
+          updateUserInputBox();
         }
       } catch (err) {
-        console.error("Upload error:", err);
+        console.error("File handling failed:", err); // Log file handling errors
         alert("File upload failed: " + err.message);
         attachedFileSpan.textContent = '';
         fileContentPrompt = null;
         fileNamePrompt = null;
+        fileName = null;
         updateUnloadBtn();
+        updateUserInputBox();
       }
     };
 
+    // Add event listener for copy buttons using delegation
+    messagesDiv.addEventListener('click', async (event) => {
+      if (event.target.classList.contains('copy-code-btn')) {
+        const copyBtn = event.target;
+        // Find the preceding pre element
+        let preElement = copyBtn.previousElementSibling;
+        while(preElement && preElement.tagName !== 'PRE') {
+            preElement = preElement.previousElementSibling;
+        }
+
+
+        if (preElement && preElement.tagName === 'PRE') {
+          const codeElement = preElement.querySelector('code');
+          if (codeElement) {
+            const codeToCopy = codeElement.textContent;
+
+            try {
+              await navigator.clipboard.writeText(codeToCopy);
+              console.log("Code copied to clipboard.");
+              const originalText = copyBtn.textContent;
+              copyBtn.textContent = '✅ Copied!';
+              setTimeout(() => {
+                copyBtn.textContent = originalText;
+              }, 2000); // Change back after 2 seconds
+            } catch (err) {
+              console.error("Failed to copy code:", err);
+              copyBtn.textContent = '❌ Failed!';
+              setTimeout(() => {
+                 copyBtn.textContent = '📋 Copy';
+              }, 2000);
+            }
+          }
+        }
+      }
+    });
+
+
+    // Initial state updates
     updateUnloadBtn();
+    updateUserInputBox();
+    console.log("Script initialized."); // Log script initialization
   </script>
 </body>
 </html>
