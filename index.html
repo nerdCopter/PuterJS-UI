@@ -7,17 +7,38 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://js.puter.com/v2/"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f6f8fa; margin: 0; padding: 0; }
+    body {
+      font-family: Georgia, "Times New Roman", Times, serif; /* Changed to a standard serif font stack */
+      background: #f6f8fa;
+      margin: 0;
+      padding: 0;
+    }
     #container { width: 80vw; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; }
-    #messages { min-height: 200px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 16px; }
-    .msg { margin: 12px 0; }
-    .msg.user { text-align: right; color: #2563eb; }
-    .msg.ai { text-align: left; color: #111827; }
-    .msg .bubble { display: inline-block; padding: 10px 14px; border-radius: 14px; margin-bottom: 2px; }
+    #messages { min-height: 10px; margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 16px; }
+    .msg { margin: 8px 0; } /* Reintroduced vertical margin for whitespace between bubbles */
+    .msg.user { text-align: right; color: #000000; } /* Changed user message color to black */
+    .msg.ai { text-align: left; color: #000000; } /* Changed AI message color to black */
+    .msg .bubble {
+      display: inline-block;
+      padding: 4px 6px; /* Adjusted for very short vertical (4px) and slightly narrower horizontal (6px) padding */
+      border-radius: 4px; /* Adjusted border-radius to match smaller padding */
+      margin-bottom: 0; /* Ensure no extra margin below the bubble itself */
+    }
     .msg.user .bubble { background: #dbeafe; }
     .msg.ai .bubble { background: #f3f4f6; }
     #input-row { display: flex; gap: 8px; margin-top: 12px; }
-    #user-input { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
+    #user-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      resize: none; /* Prevent manual resizing by the user */
+      overflow-y: hidden; /* Hide scrollbar, as we're auto-growing */
+      min-height: 40px; /* Set a minimum height for the textarea */
+      box-sizing: border-box; /* Include padding and border in the element's total width and height */
+      height: auto; /* Allow height to be controlled by JS */
+    }
     #send-btn, #attach-btn, #unload-btn { padding: 0 18px; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-size: 1rem; cursor: pointer; }
     #attach-btn { background: #6b7280; }
     #unload-btn { background: #e11d48; }
@@ -26,50 +47,62 @@
     #unload-btn:hover { background: #be123c; }
     #file-input { display: none; }
     #attached-file { font-size: 0.95em; color: #374151; margin-right: 8px; margin-top: 2px; }
-    .markdown-body { font-size: 1em; }
-    /* Base styles for markdown code/pre */
-    .markdown-body pre, .markdown-body code {
-      border-radius: 5px;
-      padding: 2px 6px;
+    .markdown-body {
+      font-size: 1.3em; /* Font size for non-code text */
+      line-height: 1.2; /* Adjusted line-height for more compact text lines */
     }
+
+    /* Styles for markdown code/pre */
     .markdown-body pre {
-      padding: 8px;
+      border-radius: 3px;
+      padding: 4px;
+      /* Programmer font */
+      font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', 'Liberation Mono', 'Menlo', 'Courier New', monospace;
+      font-size: 0.8em; /* Decreased code font size relative to the new markdown-body size */
     }
-    /* Specific background for AI message code/pre */
-    .msg.ai .markdown-body pre,
-    .msg.ai .markdown-body code {
-      background: #e9ecef; /* Lighter gray for AI code blocks */
+    .markdown-body code { /* Inline code */
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', 'Liberation Mono', 'Menlo', 'Courier New', monospace;
+      font-size: 0.8em;
     }
-     /* Specific background for User message code/pre */
-    .msg.user .markdown-body pre,
-    .msg.user .markdown-body code {
-      background: #c6dafc; /* A shade lighter than user bubble #dbeafe */
+
+    /* Remove default top/bottom margins from common markdown-generated block elements */
+    .markdown-body p,
+    .markdown-body ul,
+    .markdown-body ol,
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3,
+    .markdown-body h4,
+    .markdown-body h5,
+    .markdown-body h6 {
+      margin-top: 2px; /* Very small top margin */
+      margin-bottom: 2px; /* Very small bottom margin */
     }
-    .markdown-body a { color: #2563eb; }
-    #unload-btn { display: none; }
 
     /* Style for the copy button */
     .copy-code-btn {
-      display: inline-block;
-      margin-top: 5px;
+      display: inline-block; /* Changed to inline-block for float */
+      margin-top: 5px; /* Margin to separate from the code block above */
       padding: 4px 8px;
       font-size: 0.8em;
       cursor: pointer;
-      background-color: #e9ecef; /* Match AI code block background */
-      border: 1px solid #ced4da;
+      background-color: #2563eb; /* Changed to blue */
+      border: 1px solid #1d4ed8; /* Darker blue border */
       border-radius: 4px;
-      color: #495057;
+      color: #fff; /* White text */
       float: right; /* Position to the right */
       clear: both; /* Ensure it's below the pre if pre is block */
       user-select: none; /* Prevent text selection on the button */
     }
 
     .copy-code-btn:hover {
-      background-color: #dee2e6;
+      background-color: #1d4ed8; /* Darker blue on hover */
     }
 
     .copy-code-btn:active {
-      background-color: #ced4da;
+      background-color: #111827; /* Even darker blue on active */
     }
   </style>
 </head>
@@ -79,7 +112,7 @@
     <div id="messages"></div>
     <div id="input-row">
       <span id="attached-file"></span>
-      <input type="text" id="user-input" placeholder="Type your message or attach a file..." autocomplete="off" />
+      <textarea id="user-input" placeholder="Type your message or attach a file..." autocomplete="off" rows="1"></textarea>
       <button id="attach-btn" title="Attach file">📎</button>
       <input type="file" id="file-input" />
       <button id="unload-btn">Unload File</button>
@@ -103,7 +136,7 @@
     let chatHistory = [];
 
     // Reusable variable for the file analysis prompt template
-    const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` internally. Brief your findings. Wait for my request.`;
+    const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` and provide a brief summary of its function.`; // Changed back to 'brief'
 
     // Define model and temperature
     const modelName = 'google/gemini-2.5-flash-preview:thinking';
@@ -113,6 +146,10 @@
     document.title = `${modelName} (Temp: ${temperatureValue})`;
     chatTitle.textContent = `${modelName.split('/').pop().split(':')[0]} (Temp: ${temperatureValue})`;
 
+    // Configure marked.js to convert GFM line breaks to <br> tags
+    marked.setOptions({
+      breaks: true
+    });
 
     function renderMarkdown(md) {
       const div = document.createElement('div');
@@ -144,14 +181,20 @@
               copyBtn.className = 'copy-code-btn';
               copyBtn.textContent = '📋 Copy'; // Clipboard icon and text
               // Insert the button after the pre element
-              pre.parentNode.insertBefore(copyBtn, pre.nextSibling);
+              pre.parentNode.insertBefore(copyBtn, pre.nextSibling); // Insert after the pre element
             });
           }
         }
       }
       messagesDiv.appendChild(msgDiv);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
       return bubbleElement; // Return the bubble element for streaming updates
+    }
+
+    // Function to auto-grow the textarea
+    function autoGrowTextarea(element) {
+      element.style.height = 'auto'; // Reset height to recalculate scrollHeight
+      element.style.height = element.scrollHeight + 'px'; // Set height to scrollHeight
     }
 
     function updateUnloadBtn() {
@@ -166,14 +209,13 @@
     function updateUserInputBox() {
       console.log(`Updating user input box. Current fileName: ${fileName}`); // Log input box state
       if (fileName) {
-        // Use the reusable variable here
         userInput.value = fileAnalysisPromptTemplate(fileName);
-        // Removed: userInput.readOnly = true; // Allow editing when file is loaded
       } else {
         userInput.value = '';
         userInput.placeholder = 'Type your message or attach a file...';
-        userInput.readOnly = false;
       }
+      userInput.readOnly = false; // Always ensure it's editable unless explicitly set otherwise
+      autoGrowTextarea(userInput); // Adjust height after updating value
     }
 
     unloadBtn.onclick = () => {
@@ -192,13 +234,17 @@
       let userMessageForDisplay = text; // What the user sees they sent
       let messageContentForModel = text; // What is actually sent to the AI
 
+      // Clear input field immediately after getting its value
+      userInput.value = '';
+      autoGrowTextarea(userInput); // Reset height after clearing
+
       // Check if a file is currently attached and this is the initial send
       if (fileContentPrompt && fileName) {
         console.log(`File attached. Preparing message with file content for model.`); // Log file handling
         // Construct the full message for the model including the file content
-        messageContentForModel = `${userInput.value}\n\n${fileContentPrompt}`; // Use current input value + file content
-        // The user input box already contains the analysis prompt (or modified text), so display that
-        userMessageForDisplay = userInput.value;
+        messageContentForModel = `${userMessageForDisplay}\n\n${fileContentPrompt}`; // Use original input value + file content
+        // userMessageForDisplay is already set to the content of userInput.value.trim() before clearing
+        // So, userMessageForDisplay remains the text the user typed/saw in the input box.
 
         // Clear the file state immediately after constructing the message for this turn
         console.log("Clearing file state after sending."); // Log file state clear
@@ -210,7 +256,7 @@
         updateUserInputBox(); // Reset input box and state
       } else if (!text) {
         // If no file is attached and the input is empty, do nothing
-        console.log("Input is empty, not sending message."); // Log empty message attempt
+        console.log("Input was empty, not sending message."); // Log empty message attempt
         return;
       }
 
@@ -219,6 +265,18 @@
 
       // Add the user message content (what was sent to the model) to chat history
       chatHistory.push({ role: 'user', content: messageContentForModel });
+
+      // Check for the specific "wait for my request" command
+      if (userMessageForDisplay.toLowerCase() === "wait for my request") {
+          console.log("User requested to wait. Responding with 'Awaiting your command.'");
+          const aiResponseText = "Awaiting your command.";
+          addMessage(aiResponseText, 'ai');
+          chatHistory.push({ role: 'assistant', content: aiResponseText });
+          console.log("Chat history updated:", chatHistory);
+          // userInput.value is already cleared
+          return; // Stop here, do not call the AI API
+      }
+
 
       // Build the messages array for the API directly from chatHistory
       const msgs = [...chatHistory]; // Create a copy to send
@@ -240,7 +298,7 @@
         );
         console.log("AI response received (stream)."); // Log response start
         let aiText = '';
-        const aiBubble = document.getElementById('ai-bubble'); // Get reference once
+        // No need to get aiBubble here, as aiBubbleElement is already the reference to the specific bubble
 
         for await (const part of response) {
           if (part?.text) {
@@ -249,7 +307,7 @@
             if (aiBubbleElement) {
                 aiBubbleElement.innerHTML = ''; // Clear "Thinking..."
                 aiBubbleElement.appendChild(renderMarkdown(aiText));
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll during streaming
             }
             // console.log("Streamed part:", part.text); // Log each streamed part (optional, can be noisy)
           }
@@ -266,7 +324,7 @@
                const copyBtn = document.createElement('button');
                copyBtn.className = 'copy-code-btn';
                copyBtn.textContent = '📋 Copy';
-               pre.parentNode.insertBefore(copyBtn, pre.nextSibling);
+               pre.parentNode.insertBefore(copyBtn, pre.nextSibling); // Insert after the pre element
              });
         }
 
@@ -280,21 +338,33 @@
         if (aiBubbleElement) {
             aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${e.message}</span>`;
         }
-        // Optionally, add an error message to chat history as an AI turn
+        // Optionally, add an error message to chat history as an AI turnrenderMarkdown
         chatHistory.push({ role: 'assistant', content: `Error: ${e.message}` });
         console.log("Chat history updated with error:", chatHistory);
-      }
-
-      // Clear the input box after sending (unless it was already cleared by file logic)
-      if (!fileName) { // Check fileName again, as it was cleared if a file was sent
-         userInput.value = '';
       }
     }
 
     sendBtn.onclick = sendMessage;
-    userInput.addEventListener('keypress', e => {
-      if (e.key === 'Enter') sendMessage();
+
+    // Use keydown for robust handling of Enter and Shift+Enter
+    userInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault(); // Always prevent default Enter behavior (newline or implicit form submission)
+
+        if (e.ctrlKey) { // Ctrl + Enter: Submit
+          sendMessage();
+        } else { // Enter or Shift + Enter: Insert newline
+          const start = userInput.selectionStart;
+          const end = userInput.selectionEnd;
+          userInput.value = userInput.value.substring(0, start) + '\n' + userInput.value.substring(end);
+          userInput.selectionStart = userInput.selectionEnd = start + 1;
+          autoGrowTextarea(userInput); // Adjust height after inserting newline
+        }
+      }
     });
+
+    // Listen for input events to auto-grow textarea
+    userInput.addEventListener('input', () => autoGrowTextarea(userInput));
 
     attachBtn.onclick = () => fileInput.click();
 
