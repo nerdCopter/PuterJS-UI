@@ -18,16 +18,19 @@
     .msg.ai .bubble { background: #f3f4f6; }
     #input-row { display: flex; gap: 8px; margin-top: 12px; }
     #user-input { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
-    #send-btn, #attach-btn { padding: 0 18px; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-size: 1rem; cursor: pointer; }
+    #send-btn, #attach-btn, #unload-btn { padding: 0 18px; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-size: 1rem; cursor: pointer; }
     #attach-btn { background: #6b7280; }
+    #unload-btn { background: #e11d48; }
     #send-btn:hover { background: #1d4ed8; }
     #attach-btn:hover { background: #374151; }
+    #unload-btn:hover { background: #be123c; }
     #file-input { display: none; }
     #attached-file { font-size: 0.95em; color: #374151; margin-right: 8px; margin-top: 2px; }
     .markdown-body { font-size: 1em; }
     .markdown-body pre, .markdown-body code { background: #f6f8fa; border-radius: 5px; padding: 2px 6px; }
     .markdown-body pre { padding: 8px; }
     .markdown-body a { color: #2563eb; }
+    #unload-btn { display: none; }
   </style>
 </head>
 <body>
@@ -39,6 +42,7 @@
       <input type="text" id="user-input" placeholder="Type your message or attach a file..." autocomplete="off" />
       <button id="attach-btn" title="Attach file">📎</button>
       <input type="file" id="file-input" />
+      <button id="unload-btn">Unload File</button>
       <button id="send-btn">Send</button>
     </div>
   </div>
@@ -47,6 +51,7 @@
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
     const attachBtn = document.getElementById('attach-btn');
+    const unloadBtn = document.getElementById('unload-btn');
     const fileInput = document.getElementById('file-input');
     const attachedFileSpan = document.getElementById('attached-file');
 
@@ -73,27 +78,39 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
+    function updateUnloadBtn() {
+      if (fileContentPrompt || fileNamePrompt) {
+        unloadBtn.style.display = "inline-block";
+      } else {
+        unloadBtn.style.display = "none";
+      }
+    }
+
+    unloadBtn.onclick = () => {
+      fileContentPrompt = null;
+      fileNamePrompt = null;
+      attachedFileSpan.textContent = '';
+      updateUnloadBtn();
+    };
+
     async function sendMessage() {
       let text = userInput.value.trim();
 
-      // If a file prompt is staged, use the generic display but send full content to Gemini
       if (fileContentPrompt) {
-        addMessage(fileNamePrompt, 'user'); // Show only filename, not contents
-        text = fileContentPrompt;           // Send full content to Gemini
+        addMessage(fileNamePrompt, 'user');
+        text = fileContentPrompt;
       } else if (text) {
         addMessage(text, 'user');
       } else {
         return;
       }
 
-      // Build Gemini message context
       const msgs = [];
       for (const entry of chatHistory) {
         msgs.push({ role: entry.sender === 'user' ? 'user' : 'assistant', content: entry.text });
       }
       msgs.push({ role: 'user', content: text });
 
-      // Show AI placeholder
       const aiDiv = document.createElement('div');
       aiDiv.className = 'msg ai';
       aiDiv.innerHTML = `<div class="bubble" id="ai-bubble"><em>Thinking...</em></div>`;
@@ -124,6 +141,7 @@
       fileContentPrompt = null;
       fileNamePrompt = null;
       attachedFileSpan.textContent = '';
+      updateUnloadBtn();
     }
 
     sendBtn.onclick = sendMessage;
@@ -134,7 +152,7 @@
     attachBtn.onclick = () => fileInput.click();
 
     fileInput.onchange = async (e) => {
-      console.log("File input changed"); // Should always log
+      console.log("File input changed");
       const file = e.target.files[0];
       if (!file) {
         console.log("No file selected");
@@ -147,12 +165,12 @@
           file.name.endsWith('.rs') ||
           file.name.endsWith('.txt')
         ) {
-          // Read code/text files and set as prompt, but only display filename
           const text = await file.text();
-          fileContentPrompt = `Analyze the following file. Wait for my request.\n\n${text}`;
-          fileNamePrompt = `(${file.name})`; // Only this is shown in chat
+          fileContentPrompt = `Analyze ${file.name}. Confirm receipt and wait for my request.\n\n${text}`;
+          fileNamePrompt = `(${file.name})`;
           attachedFileSpan.textContent = `Loaded: ${file.name}`;
           userInput.value = '';
+          updateUnloadBtn();
         } else if (file.type.startsWith('image/')) {
           console.log("Uploading file...");
           const uploadedFiles = await puter.fs.upload(e.target.files);
@@ -173,11 +191,13 @@
           attachedFileSpan.textContent = '';
           fileContentPrompt = null;
           fileNamePrompt = null;
+          updateUnloadBtn();
         } else {
           alert("Unsupported file type for direct Gemini input.");
           attachedFileSpan.textContent = '';
           fileContentPrompt = null;
           fileNamePrompt = null;
+          updateUnloadBtn();
         }
       } catch (err) {
         console.error("Upload error:", err);
@@ -185,8 +205,11 @@
         attachedFileSpan.textContent = '';
         fileContentPrompt = null;
         fileNamePrompt = null;
+        updateUnloadBtn();
       }
     };
+
+    updateUnloadBtn();
   </script>
 </body>
 </html>
