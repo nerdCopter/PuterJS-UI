@@ -110,11 +110,35 @@
     .copy-code-btn:active {
       background-color: #111827; /* Even darker blue on active */
     }
+
+    /* Styles for model selection */
+    #model-selection {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    #model-selection label {
+      font-size: 0.95em;
+      color: #374151;
+    }
+    #model-select {
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95em;
+      background-color: #fff;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div id="container">
     <h2 id="chat-title"></h2> <!-- Added ID for dynamic update -->
+    <div id="model-selection">
+      <label for="model-select">Select Model:</label>
+      <select id="model-select"></select>
+    </div>
     <div id="messages"></div>
     <div id="input-row">
       <span id="attached-file"></span>
@@ -139,6 +163,7 @@
     const fileInput = document.getElementById('file-input');
     const attachedFileSpan = document.getElementById('attached-file');
     const chatTitle = document.getElementById('chat-title'); // Get the chat title element
+    const modelSelect = document.getElementById('model-select'); // Get the model select element
 
     let fileContentPrompt = null; // Stores content of text-based files
     let attachedImageURL = null;  // Stores public URL of uploaded image
@@ -148,13 +173,82 @@
     // Reusable variable for the file analysis prompt template
     const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` and provide a brief summary of its function.`;
 
-    // Define model and temperature (This is the source of truth for the model configuration)
-    const modelName = 'google/gemini-2.5-flash-preview-05-20:thinking';
+    // Hardcoded list of models from Puter.js documentation, now including user's suggested models
+    const availableModels = [
+      "codestral-latest",
+      "openrouter:mistralai/codestral-2501",
+      "openrouter:mistralai/codestral-2501:free",
+      "openrouter:deepseek/deepseek-coder",
+      "openrouter:deepseek/deepseek-coder:free",
+      "openrouter:deepseek/deepseek-reasoner",
+      "openrouter:deepseek/deepseek-reasoner:free",
+      "gpt-4.5-preview",
+      "gpt-4.1",
+      "openrouter:openai/gpt-4o-2024-11-20",
+      "openrouter:openai/gpt-4o-2024-08-06",
+      "openrouter:openai/gpt-4o",
+      "openrouter:openai/gpt-4o:free",
+      "claude-3-7-sonnet",
+      "claude-3-5-sonnet",
+      "claude-opus-4",
+      "openrouter:anthropic/claude-3.7-sonnet",
+      "openrouter:anthropic/claude-3.7-sonnet:free",
+      "openrouter:anthropic/claude-3.5-sonnet",
+      "openrouter:anthropic/claude-3.5-sonnet:free",
+      "openrouter:anthropic/claude-opus-4",
+      "openrouter:anthropic/claude-opus-4:beta",
+      "openrouter:qwen/qwen-2.5-coder-32b-instruct",
+      "openrouter:qwen/qwen-2.5-coder-32b-instruct:free",
+      "openrouter:qwen/qwen2.5-coder-7b-instruct",
+      "openrouter:qwen/qwen2.5-coder-7b-instruct:free",
+      "openrouter:qwen/qwen3-235b-a22b",
+      "openrouter:qwen/qwen3-235b-a22b:free",
+      "openrouter:qwen/qwen3-32b",
+      "openrouter:qwen/qwen3-32b:free",
+      "openrouter:qwen/qwen3-14b",
+      "openrouter:qwen/qwen3-14b:free",
+      "openrouter:qwen/qwen3-30b-a3b",
+      "openrouter:qwen/qwen3-30b-a3b:free",
+      "openrouter:ai21/jamba-1.6-large",
+      "openrouter:ai21/jamba-1.6-large:free",
+      "openrouter:ai21/jamba-1.6-mini",
+      "openrouter:ai21/jamba-1.6-mini:free",
+      "openrouter:microsoft/phi-4-reasoning-plus",
+      "openrouter:microsoft/phi-4-reasoning-plus:free",
+      "google/gemini-2.5-flash-preview-05-20:thinking",
+      "google/gemini-2.5-flash-preview:thinking",
+      "openrouter:google/gemini-2.5-flash-preview-05-20",
+      "openrouter:google/gemini-2.5-flash-preview",
+      "openrouter:google/gemini-2.5-flash-preview-05-20:free",
+      "openrouter:google/gemini-2.5-flash-preview:free",
+    ];
+
+    // Default model and temperature
+    let selectedModel = "google/gemini-2.5-flash-preview-05-20:thinking"; // Default to one of the newly added models
     const temperatureValue = 0.3;
 
-    // Update the document title and chat header on load
-    document.title = `Puter.JS: ${modelName} (Temp: ${temperatureValue})`;
-    chatTitle.innerHTML = `<a href="https://developer.puter.com/tutorials/" target="_blank">Puter.JS</a>: ${modelName.split('/').pop().split(':')[0]} (Temp: ${temperatureValue})`;
+    function updateChatTitle() {
+      document.title = `Puter.JS: ${selectedModel} (Temp: ${temperatureValue})`;
+      chatTitle.innerHTML = `<a href="https://developer.puter.com/tutorials/" target="_blank">Puter.JS</a>: ${selectedModel} (Temp: ${temperatureValue})`;
+    }
+
+    function populateModelSelect() {
+        availableModels.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model;
+            option.textContent = model;
+            modelSelect.appendChild(option);
+        });
+        // Set the default selected model
+        modelSelect.value = selectedModel;
+    }
+
+    // Event listener for model selection change
+    modelSelect.addEventListener('change', () => {
+        selectedModel = modelSelect.value;
+        updateChatTitle();
+        console.log(`Model changed to: ${selectedModel}`);
+    });
 
 
     function renderMarkdown(md) {
@@ -320,7 +414,7 @@
         const response = await puter.ai.chat(
           msgs,
           {
-              model: modelName, // Use the defined model variable
+              model: selectedModel, // Use the selected model from the dropdown
               stream: true,
               temperature: temperatureValue
             }
@@ -539,8 +633,10 @@
     });
 
     // Initial state updates
+    populateModelSelect(); // Populate the dropdown on load
     updateUnloadBtn();
     updateUserInputBox();
+    updateChatTitle(); // Set initial chat title
     console.log("Script initialized.");
   </script>
 </body>
