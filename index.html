@@ -25,11 +25,13 @@
       margin-bottom: 0; /* Ensure no extra margin below the bubble itself */
     }
     .msg.user .bubble { background: #dbeafe; }
+    /* Specific style for the thinking bubble */
     .msg.ai .bubble.thinking-bubble {
       background: #ffbf00; /* Amber color */
       color: #333; /* Darker text color for contrast on amber */
     }
-    .msg.ai .bubble { background: #f3f4f6; }
+    .msg.ai .bubble { background: #f3f4f6; } /* Default AI bubble background */
+
     #input-row { display: flex; gap: 8px; margin-top: 12px; }
     #user-input {
       flex: 1;
@@ -173,6 +175,9 @@
       if (text) {
         if (isStreamingPlaceholder) {
            bubbleElement.innerHTML = text; // Add "Thinking..." directly
+           if (sender === 'ai') { // Only apply thinking style to AI placeholder
+             bubbleElement.classList.add('thinking-bubble'); // ADDED: Apply amber class
+           }
         } else {
           const renderedContent = renderMarkdown(text);
           bubbleElement.appendChild(renderedContent);
@@ -340,6 +345,7 @@
         if (aiBubbleElement) {
              aiBubbleElement.innerHTML = '';
              aiBubbleElement.appendChild(renderMarkdown(aiText));
+             aiBubbleElement.classList.remove('thinking-bubble'); // REMOVED: Remove amber class
              const codeBlocks = aiBubbleElement.querySelectorAll('pre');
              codeBlocks.forEach(pre => {
                const copyBtn = document.createElement('button');
@@ -357,9 +363,10 @@
         console.error("Error during AI chat:", e);
         if (aiBubbleElement) {
             aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${e.message}</span>`;
+            aiBubbleElement.classList.remove('thinking-bubble'); // REMOVED: Remove amber class on error
         }
         chatHistory.push({ role: 'assistant', content: `Error: ${e.message}` });
-        console.log("Chat history updated with error:", chatHistory);
+        console.log("Chat history updated:", chatHistory);
       }
     }
 
