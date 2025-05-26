@@ -25,6 +25,10 @@
       margin-bottom: 0; /* Ensure no extra margin below the bubble itself */
     }
     .msg.user .bubble { background: #dbeafe; }
+    .msg.ai .bubble.thinking-bubble {
+      background: #ffbf00; /* Amber color */
+      color: #333; /* Darker text color for contrast on amber */
+    }
     .msg.ai .bubble { background: #f3f4f6; }
     #input-row { display: flex; gap: 8px; margin-top: 12px; }
     #user-input {
@@ -115,11 +119,16 @@
       <textarea id="user-input" placeholder="Type your message or attach a file..." autocomplete="off" rows="1"></textarea>
       <button id="attach-btn" title="Attach file">📎</button>
       <input type="file" id="file-input" />
-      <button id="unload-btn">Unload File</button>
+      <button id="unload-btn">Abort File</button>
       <button id="send-btn">Send</button>
     </div>
   </div>
   <script>
+    // Configure marked.js to convert GFM line breaks to <br> tags
+    marked.setOptions({
+      breaks: true
+    });
+
     const messagesDiv = document.getElementById('messages');
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
@@ -129,27 +138,22 @@
     const attachedFileSpan = document.getElementById('attached-file');
     const chatTitle = document.getElementById('chat-title'); // Get the chat title element
 
-    let fileContentPrompt = null;
-    let fileNamePrompt = null;
-    let fileName = null;
-    // chatHistory will now store objects in the format expected by the API
-    let chatHistory = [];
+    let fileContentPrompt = null; // Stores content of text-based files
+    let attachedImageURL = null;  // Stores public URL of uploaded image
+    let fileName = null;          // Stores the name of the attached file (text or image)
+    let chatHistory = [];         // Stores the visible conversation history (text only for simplicity)
 
     // Reusable variable for the file analysis prompt template
-    const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` and provide a brief summary of its function.`; // Changed back to 'brief'
+    const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` and provide a brief summary of its function.`;
 
-    // Define model and temperature
-    const modelName = 'puterJS: google/gemini-2.5-flash-preview:thinking';
+    // Define model and temperature (This is the source of truth for the model configuration)
+    const modelName = 'google/gemini-2.5-flash-preview-05-20:thinking';
     const temperatureValue = 0.3;
 
     // Update the document title and chat header on load
-    document.title = `${modelName} (Temp: ${temperatureValue})`;
-    chatTitle.textContent = `${modelName.split('/').pop().split(':')[0]} (Temp: ${temperatureValue})`;
+    document.title = `PuterJS: ${modelName} (Temp: ${temperatureValue})`;
+    chatTitle.innerHTML = `<a href="https://developer.puter.com/" target="_blank">Puter.JS</a>: ${modelName.split('/').pop().split(':')[0]} (Temp: ${temperatureValue})`;
 
-    // Configure marked.js to convert GFM line breaks to <br> tags
-    marked.setOptions({
-      breaks: true
-    });
 
     function renderMarkdown(md) {
       const div = document.createElement('div');
@@ -159,19 +163,19 @@
     }
 
     function addMessage(text, sender = 'user', isStreamingPlaceholder = false) {
-      console.log(`Adding message: "${text}" from ${sender}. Is placeholder: ${isStreamingPlaceholder}`); // Log message being added
+      console.log(`Adding message: "${text}" from ${sender}. Is placeholder: ${isStreamingPlaceholder}`);
       const msgDiv = document.createElement('div');
       msgDiv.className = `msg ${sender}`;
       let bubble = `<div class="bubble"></div>`;
       msgDiv.innerHTML = bubble;
-      const bubbleElement = msgDiv.querySelector('.bubble'); // Get the bubble element
+      const bubbleElement = msgDiv.querySelector('.bubble');
 
       if (text) {
         if (isStreamingPlaceholder) {
            bubbleElement.innerHTML = text; // Add "Thinking..." directly
         } else {
           const renderedContent = renderMarkdown(text);
-          bubbleElement.appendChild(renderedContent); // Append the rendered markdown
+          bubbleElement.appendChild(renderedContent);
 
           // If it's a completed AI message, add copy buttons to code blocks
           if (sender === 'ai') {
@@ -179,8 +183,7 @@
             codeBlocks.forEach(pre => {
               const copyBtn = document.createElement('button');
               copyBtn.className = 'copy-code-btn';
-              copyBtn.textContent = '📋 Copy'; // Clipboard icon and text
-              // Insert the button after the pre element
+              copyBtn.textContent = '📋 Copy';
               pre.parentNode.insertBefore(copyBtn, pre.nextSibling); // Insert after the pre element
             });
           }
@@ -198,8 +201,8 @@
     }
 
     function updateUnloadBtn() {
-      console.log(`Updating unload button visibility. fileContentPrompt: ${!!fileContentPrompt}, fileNamePrompt: ${!!fileNamePrompt}`); // Log unload button state
-      if (fileContentPrompt || fileNamePrompt) {
+      console.log(`Updating unload button visibility. fileContentPrompt: ${!!fileContentPrompt}, attachedImageURL: ${!!attachedImageURL}`);
+      if (fileContentPrompt || attachedImageURL) {
         unloadBtn.style.display = "inline-block";
       } else {
         unloadBtn.style.display = "none";
@@ -207,9 +210,13 @@
     }
 
     function updateUserInputBox() {
-      console.log(`Updating user input box. Current fileName: ${fileName}`); // Log input box state
+      console.log(`Updating user input box. Current fileName: ${fileName}, attachedImageURL: ${!!attachedImageURL}`);
       if (fileName) {
-        userInput.value = fileAnalysisPromptTemplate(fileName);
+        if (attachedImageURL) {
+          userInput.value = `Analyze this image (${fileName}). Confirm receipt and wait for my request.`;
+        } else {
+          userInput.value = fileAnalysisPromptTemplate(fileName);
+        }
       } else {
         userInput.value = '';
         userInput.placeholder = 'Type your message or attach a file...';
@@ -219,9 +226,9 @@
     }
 
     unloadBtn.onclick = () => {
-      console.log("Unload button clicked. Clearing file state."); // Log unload action
+      console.log("Unload button clicked. Clearing file state.");
       fileContentPrompt = null;
-      fileNamePrompt = null;
+      attachedImageURL = null;
       fileName = null;
       attachedFileSpan.textContent = '';
       updateUnloadBtn();
@@ -229,42 +236,52 @@
     };
 
     async function sendMessage() {
-      console.log("sendMessage called."); // Log sendMessage start
+      console.log("sendMessage called.");
       let text = userInput.value.trim();
       let userMessageForDisplay = text; // What the user sees they sent
-      let messageContentForModel = text; // What is actually sent to the AI
 
-      // Clear input field immediately after getting its value
+      // Prepare message parts for the model
+      let messageContentForModelParts = [];
+
+      // Add user's typed text as a part if not empty
+      if (userMessageForDisplay) {
+          messageContentForModelParts.push({ text: userMessageForDisplay });
+      }
+
+      // Add file content as a part if a text file is attached
+      if (fileContentPrompt) {
+          messageContentForModelParts.push({ text: fileContentPrompt });
+      }
+      // Add image URL as a part if an image is attached
+      else if (attachedImageURL) {
+          messageContentForModelParts.push({ image_url: { url: attachedImageURL } });
+      }
+
+      // If no text and no file/image, do nothing
+      if (messageContentForModelParts.length === 0) {
+          console.log("No content to send.");
+          return;
+      }
+
+      // Clear input field and file state immediately after getting its value
       userInput.value = '';
       autoGrowTextarea(userInput); // Reset height after clearing
 
-      // Check if a file is currently attached and this is the initial send
-      if (fileContentPrompt && fileName) {
-        console.log(`File attached. Preparing message with file content for model.`); // Log file handling
-        // Construct the full message for the model including the file content
-        messageContentForModel = `${userMessageForDisplay}\n\n${fileContentPrompt}`; // Use original input value + file content
-        // userMessageForDisplay is already set to the content of userInput.value.trim() before clearing
-        // So, userMessageForDisplay remains the text the user typed/saw in the input box.
+      // Clear file state variables after they've been used for this message
+      fileContentPrompt = null;
+      attachedImageURL = null;
+      fileName = null;
+      attachedFileSpan.textContent = '';
+      updateUnloadBtn();
+      updateUserInputBox(); // Reset input box and state
 
-        // Clear the file state immediately after constructing the message for this turn
-        console.log("Clearing file state after sending."); // Log file state clear
-        fileContentPrompt = null;
-        fileNamePrompt = null;
-        fileName = null;
-        attachedFileSpan.textContent = '';
-        updateUnloadBtn();
-        updateUserInputBox(); // Reset input box and state
-      } else if (!text) {
-        // If no file is attached and the input is empty, do nothing
-        console.log("Input was empty, not sending message."); // Log empty message attempt
-        return;
-      }
-
-      // Add the user message to the display
+      // Add the user message to the display (using the text the user saw/typed)
       addMessage(userMessageForDisplay, 'user');
 
       // Add the user message content (what was sent to the model) to chat history
-      chatHistory.push({ role: 'user', content: messageContentForModel });
+      // For simplicity in chatHistory, we'll store the display text.
+      // For the model API call, we use the structured messageContentForModelParts.
+      chatHistory.push({ role: 'user', content: userMessageForDisplay }); // Store display text for history
 
       // Check for the specific "wait for my request" command
       if (userMessageForDisplay.toLowerCase() === "wait for my request") {
@@ -273,19 +290,26 @@
           addMessage(aiResponseText, 'ai');
           chatHistory.push({ role: 'assistant', content: aiResponseText });
           console.log("Chat history updated:", chatHistory);
-          // userInput.value is already cleared
           return; // Stop here, do not call the AI API
       }
 
+      // Build the messages array for the API directly from chatHistory for text-only turns,
+      // and use messageContentForModelParts for the current turn.
+      const msgs = [];
+      for (const entry of chatHistory) {
+          // For simplicity, assuming chatHistory stores text.
+          // If full multimodal history is needed for the model, chatHistory would need to store parts.
+          msgs.push({ role: entry.role, content: entry.content });
+      }
+      // Replace the last user message in msgs with the actual structured parts for the current turn
+      // This ensures the model receives the image/file content for the current turn.
+      msgs[msgs.length - 1].content = messageContentForModelParts;
 
-      // Build the messages array for the API directly from chatHistory
-      const msgs = [...chatHistory]; // Create a copy to send
 
-      console.log("Sending message to AI:", msgs); // Log the message being sent to AI
+      console.log("Sending message to AI:", msgs);
 
       // Show AI placeholder and get a reference to its bubble
       const aiBubbleElement = addMessage("<em>Thinking...</em>", 'ai', true);
-
 
       try {
         const response = await puter.ai.chat(
@@ -293,12 +317,11 @@
           {
               model: modelName, // Use the defined model variable
               stream: true,
-              temperature: temperatureValue // Use the defined temperature variable
+              temperature: temperatureValue
             }
         );
-        console.log("AI response received (stream)."); // Log response start
+        console.log("AI response received (stream).");
         let aiText = '';
-        // No need to get aiBubble here, as aiBubbleElement is already the reference to the specific bubble
 
         for await (const part of response) {
           if (part?.text) {
@@ -307,38 +330,34 @@
             if (aiBubbleElement) {
                 aiBubbleElement.innerHTML = ''; // Clear "Thinking..."
                 aiBubbleElement.appendChild(renderMarkdown(aiText));
-                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll during streaming
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
-            // console.log("Streamed part:", part.text); // Log each streamed part (optional, can be noisy)
           }
         }
-        console.log("AI response stream finished. Final text:", aiText); // Log final AI text
+        console.log("AI response stream finished. Final text:", aiText);
 
         // After streaming is complete, re-render the final AI message to add copy buttons
         if (aiBubbleElement) {
-             aiBubbleElement.innerHTML = ''; // Clear the streamed content
-             aiBubbleElement.appendChild(renderMarkdown(aiText)); // Render final markdown with code blocks
-             // Manually add copy buttons after final render
+             aiBubbleElement.innerHTML = '';
+             aiBubbleElement.appendChild(renderMarkdown(aiText));
              const codeBlocks = aiBubbleElement.querySelectorAll('pre');
              codeBlocks.forEach(pre => {
                const copyBtn = document.createElement('button');
                copyBtn.className = 'copy-code-btn';
                copyBtn.textContent = '📋 Copy';
-               pre.parentNode.insertBefore(copyBtn, pre.nextSibling); // Insert after the pre element
+               pre.parentNode.insertBefore(copyBtn, pre.nextSibling);
              });
         }
 
-
         // Add the completed AI message to chat history
         chatHistory.push({ role: 'assistant', content: aiText });
-        console.log("Chat history updated:", chatHistory); // Log updated chat history
+        console.log("Chat history updated:", chatHistory);
 
       } catch (e) {
-        console.error("Error during AI chat:", e); // Log any errors
+        console.error("Error during AI chat:", e);
         if (aiBubbleElement) {
             aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${e.message}</span>`;
         }
-        // Optionally, add an error message to chat history as an AI turnrenderMarkdown
         chatHistory.push({ role: 'assistant', content: `Error: ${e.message}` });
         console.log("Chat history updated with error:", chatHistory);
       }
@@ -349,7 +368,7 @@
     // Use keydown for robust handling of Enter and Shift+Enter
     userInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
-        e.preventDefault(); // Always prevent default Enter behavior (newline or implicit form submission)
+        e.preventDefault(); // Always prevent default Enter behavior
 
         if (e.ctrlKey) { // Ctrl + Enter: Submit
           sendMessage();
@@ -369,67 +388,111 @@
     attachBtn.onclick = () => fileInput.click();
 
     fileInput.onchange = async (e) => {
-      console.log("File input changed."); // Log file input change
+      console.log("File input changed.");
       const file = e.target.files[0];
       if (!file) {
-        console.log("No file selected."); // Log no file selected
+        console.log("No file selected.");
         return;
       }
-      console.log(`Selected file: ${file.name}, type: ${file.type}`); // Log selected file details
+      console.log(`Selected file: ${file.name}, type: ${file.type}`);
+      attachedFileSpan.textContent = `Loading: ${file.name}...`; // Show loading indicator
+
       try {
         if (
           file.type.startsWith('text/') ||
+          file.name.endsWith('.bash') ||
+          file.name.endsWith('.c') ||
+          file.name.endsWith('.cfg') ||
+          file.name.endsWith('.conf') ||
+          file.name.endsWith('.cpp') ||
+          file.name.endsWith('.csv') ||
+          file.name.endsWith('.css') ||
+          file.name.endsWith('.env') ||
+          file.name.endsWith('.gitignore') ||
+          file.name.endsWith('.go') ||
+          file.name.endsWith('.h') ||
+          file.name.endsWith('.hpp') ||
+          file.name.endsWith('.html') ||
+          file.name.endsWith('.ini') ||
+          file.name.endsWith('.java') ||
           file.name.endsWith('.js') ||
+          file.name.endsWith('.json') ||
+          file.name.endsWith('.jsx') ||
+          file.name.endsWith('.log') ||
+          file.name.endsWith('.md') ||
+          file.name.endsWith('.php') ||
+          file.name.endsWith('.pl') ||
+          file.name.endsWith('.py') ||
+          file.name.endsWith('.rb') ||
           file.name.endsWith('.rs') ||
+          file.name.endsWith('.rst') ||
+          file.name.endsWith('.sh') ||
+          file.name.endsWith('.sql') ||
+          file.name.endsWith('.tex') ||
+          file.name.endsWith('.toml') ||
+          file.name.endsWith('.ts') ||
+          file.name.endsWith('.tsx') ||
           file.name.endsWith('.txt') ||
-          file.name.endsWith('.md') || // Added markdown file support
-          file.name.endsWith('.html') || // Added html file support
-          file.name.endsWith('.css') // Added css file support
+          file.name.endsWith('.vue') ||
+          file.name.endsWith('.xml') ||
+          file.name.endsWith('.yaml') ||
+          file.name.endsWith('.yml') ||
+          file.name.endsWith('.zsh')
         ) {
-          console.log("Reading text file."); // Log text file reading
+          console.log("Reading text file.");
           const text = await file.text();
-          fileContentPrompt = text; // Only the file content, not the analyze message
-          fileNamePrompt = `(${file.name})`;
+          fileContentPrompt = text; // Store text content
+          attachedImageURL = null; // Clear any previous image
           fileName = file.name;
           attachedFileSpan.textContent = `Loaded: ${file.name}`;
-          console.log(`File loaded: ${file.name}`); // Log successful file load
+          console.log(`Text file loaded: ${file.name}`);
           updateUnloadBtn();
           updateUserInputBox();
         } else if (file.type.startsWith('image/')) {
-          console.log("Image file detected. Attempting upload."); // Log image handling
+          console.log("Image file detected. Attempting upload.");
+          // Upload the image to Puter FS
           const uploadedFiles = await puter.fs.upload(e.target.files);
           const uploaded = Array.isArray(uploadedFiles) ? uploadedFiles[0] : uploadedFiles;
-          alert(
-            "Image uploaded to: " +
-              (uploaded.url || uploaded.path) +
-              "\nYou need a public URL to send to Gemini."
-          );
-          console.log(`Image uploaded: ${uploaded.url || uploaded.path}`); // Log image upload success
-          attachedFileSpan.textContent = '';
-          fileContentPrompt = null;
-          fileNamePrompt = null;
-          fileName = null;
-          updateUnloadBtn();
-          updateUserInputBox();
+
+          if (uploaded && uploaded.url) {
+              attachedImageURL = uploaded.url; // Store the public URL
+              fileContentPrompt = null; // Clear any previous text file
+              fileName = file.name;
+              attachedFileSpan.textContent = `Loaded Image: ${file.name}`;
+              console.log(`Image uploaded and URL stored: ${attachedImageURL}`);
+              updateUnloadBtn();
+              updateUserInputBox(); // Update input box with image prompt
+          } else {
+              alert("Image upload failed: No URL returned.");
+              console.error("Image upload failed: No URL returned.", uploaded);
+              attachedFileSpan.textContent = '';
+              attachedImageURL = null;
+              fileName = null;
+              updateUnloadBtn();
+              updateUserInputBox();
+          }
         } else {
-          console.warn(`Unsupported file type: ${file.type}`); // Log unsupported file type
+          console.warn(`Unsupported file type: ${file.type}`);
           alert("Unsupported file type for direct Gemini input.");
           attachedFileSpan.textContent = '';
           fileContentPrompt = null;
-          fileNamePrompt = null;
+          attachedImageURL = null;
           fileName = null;
           updateUnloadBtn();
           updateUserInputBox();
         }
       } catch (err) {
-        console.error("File handling failed:", err); // Log file handling errors
+        console.error("File handling failed:", err);
         alert("File upload failed: " + err.message);
         attachedFileSpan.textContent = '';
         fileContentPrompt = null;
-        fileNamePrompt = null;
+        attachedImageURL = null;
         fileName = null;
         updateUnloadBtn();
         updateUserInputBox();
+      } finally {
+        // Clear the file input value so that selecting the same file again triggers onchange
+        e.target.value = '';
       }
     };
 
@@ -442,7 +505,6 @@
         while(preElement && preElement.tagName !== 'PRE') {
             preElement = preElement.previousElementSibling;
         }
-
 
         if (preElement && preElement.tagName === 'PRE') {
           const codeElement = preElement.querySelector('code');
@@ -469,11 +531,10 @@
       }
     });
 
-
     // Initial state updates
     updateUnloadBtn();
     updateUserInputBox();
-    console.log("Script initialized."); // Log script initialization
+    console.log("Script initialized.");
   </script>
 </body>
 </html>
