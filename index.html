@@ -474,8 +474,27 @@
       } catch (e) {
         console.error("Error during AI chat:", e);
         if (aiBubbleElement) {
-            let errorMessage = e.error;
-            if (errorMessage && errorMessage.includes("each message must have a 'content' property")) {
+            let errorMessage;
+            if (e && e.error) {
+                if (typeof e.error === 'string') {
+                    errorMessage = e.error;
+                } else if (typeof e.error === 'object' && e.error.error) {
+                    // This handles the case where e.error is { success: false, error: "Actual error message" }
+                    errorMessage = e.error.error;
+                } else {
+                    // Fallback for other object structures or if e.error.error is not a string
+                    errorMessage = JSON.stringify(e.error);
+                }
+            } else if (e && e.message) { // Standard JavaScript error message
+                errorMessage = e.message;
+            } else {
+                errorMessage = "An unknown error occurred.";
+            }
+
+            // Ensure errorMessage is a string before calling .includes()
+            errorMessage = String(errorMessage);
+
+            if (errorMessage.includes("each message must have a 'content' property")) {
               errorMessage += " (Refresh this page to clear and reset Pure.JS)";
             }
             aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${errorMessage}</span>`;
