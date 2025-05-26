@@ -2,27 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title></title> <!-- Placeholder title removed -->
+  <title></title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://js.puter.com/v2/"></script>
   <style>
     body {
-      font-family: Georgia, "Times New Roman", Times, serif; /* Changed to a standard serif font stack */
+      font-family: Georgia, "Times New Roman", Times, serif;
       background: #f6f8fa;
       margin: 0;
       padding: 0;
     }
     #container { width: 80vw; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; }
     #messages { min-height: 10px; margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 16px; }
-    .msg { margin: 8px 0; } /* Reintroduced vertical margin for whitespace between bubbles */
-    .msg.user { text-align: right; color: #000000; } /* Changed user message color to black */
-    .msg.ai { text-align: left; color: #000000; } /* Changed AI message color to black */
+    .msg { margin: 8px 0; }
+    .msg.user { text-align: right; color: #000000; }
+    .msg.ai { text-align: left; color: #000000; }
     .msg .bubble {
       display: inline-block;
-      padding: 4px 6px; /* Adjusted for very short vertical (4px) and slightly narrower horizontal (6px) padding */
-      border-radius: 4px; /* Adjusted border-radius to match smaller padding */
-      margin-bottom: 0; /* Ensure no extra margin below the bubble itself */
+      padding: 4px 6px;
+      border-radius: 4px;
+      margin-bottom: 0;
     }
     .msg.user .bubble { background: #dbeafe; }
     /* Specific style for the thinking bubble */
@@ -39,11 +39,11 @@
       border: 1px solid #d1d5db;
       border-radius: 8px;
       font-size: 1rem;
-      resize: none; /* Prevent manual resizing by the user */
-      overflow-y: hidden; /* Hide scrollbar, as we're auto-growing */
-      min-height: 40px; /* Set a minimum height for the textarea */
-      box-sizing: border-box; /* Include padding and border in the element's total width and height */
-      height: auto; /* Allow height to be controlled by JS */
+      resize: none;
+      overflow-y: hidden;
+      min-height: 40px;
+      box-sizing: border-box;
+      height: auto;
     }
     #send-btn, #attach-btn, #unload-btn { padding: 0 18px; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-size: 1rem; cursor: pointer; }
     #attach-btn { background: #6b7280; }
@@ -54,17 +54,16 @@
     #file-input { display: none; }
     #attached-file { font-size: 0.95em; color: #374151; margin-right: 8px; margin-top: 2px; }
     .markdown-body {
-      font-size: 1.3em; /* Font size for non-code text */
-      line-height: 1.2; /* Adjusted line-height for more compact text lines */
+      font-size: 1.3em;
+      line-height: 1.2;
     }
 
     /* Styles for markdown code/pre */
     .markdown-body pre {
       border-radius: 3px;
       padding: 4px;
-      /* Programmer font */
       font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', 'Liberation Mono', 'Menlo', 'Courier New', monospace;
-      font-size: 0.8em; /* Decreased code font size relative to the new markdown-body size */
+      font-size: 0.8em;
     }
     .markdown-body code { /* Inline code */
       border-radius: 3px;
@@ -83,32 +82,32 @@
     .markdown-body h4,
     .markdown-body h5,
     .markdown-body h6 {
-      margin-top: 2px; /* Very small top margin */
-      margin-bottom: 2px; /* Very small bottom margin */
+      margin-top: 2px;
+      margin-bottom: 2px;
     }
 
     /* Style for the copy button */
     .copy-code-btn {
-      display: inline-block; /* Changed to inline-block for float */
-      margin-top: 5px; /* Margin to separate from the code block above */
+      display: inline-block;
+      margin-top: 5px;
       padding: 4px 8px;
       font-size: 0.8em;
       cursor: pointer;
-      background-color: #2563eb; /* Changed to blue */
-      border: 1px solid #1d4ed8; /* Darker blue border */
+      background-color: #2563eb;
+      border: 1px solid #1d4ed8;
       border-radius: 4px;
-      color: #fff; /* White text */
-      float: right; /* Position to the right */
-      clear: both; /* Ensure it's below the pre if pre is block */
-      user-select: none; /* Prevent text selection on the button */
+      color: #fff;
+      float: right;
+      clear: both;
+      user-select: none;
     }
 
     .copy-code-btn:hover {
-      background-color: #1d4ed8; /* Darker blue on hover */
+      background-color: #1d4ed8;
     }
 
     .copy-code-btn:active {
-      background-color: #111827; /* Even darker blue on active */
+      background-color: #111827;
     }
 
     /* Styles for model selection */
@@ -116,7 +115,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 16px;
+      flex: 1; /* Allow it to take up available space in settings-row */
     }
     #model-selection label {
       font-size: 0.95em;
@@ -129,16 +128,49 @@
       font-size: 0.95em;
       background-color: #fff;
       cursor: pointer;
+      flex: 1; /* Allow select to grow */
+    }
+
+    /* NEW STYLES for settings */
+    #settings-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 16px; /* Margin after the input row */
+      align-items: center;
+      padding-top: 16px; /* Add some padding above the settings */
+      border-top: 1px solid #eee; /* A subtle separator */
+    }
+
+    #temperature-setting {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 200px; /* Ensure enough space for slider and display */
+    }
+    #temp-slider {
+      flex-grow: 1;
+    }
+    #temp-display {
+      font-size: 0.95em;
+      color: #374151;
+      min-width: 30px; /* Ensure space for 0.0 to 1.0 */
+      text-align: right;
+    }
+
+    /* NEW STYLE for model/temp info under user bubble */
+    .msg.user .metadata {
+      font-size: 0.75em; /* Smaller font */
+      color: #6b7280; /* Gray color */
+      margin-top: 4px; /* Small margin from the bubble */
+      display: block; /* Ensure it takes its own line */
+      text-align: right; /* Align to the right like the bubble */
     }
   </style>
 </head>
 <body>
   <div id="container">
-    <h2 id="chat-title"></h2> <!-- Added ID for dynamic update -->
-    <div id="model-selection">
-      <label for="model-select">Select Model:</label>
-      <select id="model-select"></select>
-    </div>
+    <h2 id="chat-title"></h2>
     <div id="messages"></div>
     <div id="input-row">
       <span id="attached-file"></span>
@@ -147,6 +179,18 @@
       <input type="file" id="file-input" />
       <button id="unload-btn">Abort File</button>
       <button id="send-btn">Send</button>
+    </div>
+    <!-- NEW: Container for model and temperature settings, moved here -->
+    <div id="settings-row">
+        <div id="model-selection">
+            <label for="model-select">Select Model:</label>
+            <select id="model-select"></select>
+        </div>
+        <div id="temperature-setting">
+            <label for="temp-slider">Temperature:</label>
+            <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.05" value="0.3">
+            <span id="temp-display">0.3</span>
+        </div>
     </div>
   </div>
   <script>
@@ -162,74 +206,56 @@
     const unloadBtn = document.getElementById('unload-btn');
     const fileInput = document.getElementById('file-input');
     const attachedFileSpan = document.getElementById('attached-file');
-    const chatTitle = document.getElementById('chat-title'); // Get the chat title element
-    const modelSelect = document.getElementById('model-select'); // Get the model select element
+    const chatTitle = document.getElementById('chat-title');
+    const modelSelect = document.getElementById('model-select');
 
-    let fileContentPrompt = null; // Stores content of text-based files
-    let attachedImageURL = null;  // Stores public URL of uploaded image
-    let fileName = null;          // Stores the name of the attached file (text or image)
-    let chatHistory = [];         // Stores the visible conversation history (text only for simplicity)
+    // Temperature elements
+    const tempSlider = document.getElementById('temp-slider');
+    const tempDisplay = document.getElementById('temp-display');
 
-    // Reusable variable for the file analysis prompt template
+    let fileContentPrompt = null;
+    let attachedImageURL = null;
+    let fileName = null;
+    let chatHistory = [];
+
     const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` and provide a brief summary of its function.`;
 
-    // Hardcoded list of models from Puter.js documentation, now including user's suggested models
     const availableModels = [
       "codestral-latest",
-      "openrouter:mistralai/codestral-2501",
-      "openrouter:mistralai/codestral-2501:free",
-      "openrouter:deepseek/deepseek-coder",
-      "openrouter:deepseek/deepseek-coder:free",
-      "openrouter:deepseek/deepseek-reasoner",
-      "openrouter:deepseek/deepseek-reasoner:free",
+      "openrouter:deepseek/deepseek-v3-base:free",
+      "openrouter:deepseek/deepseek-chat-v3-0324:free",
+      "openrouter:deepseek/deepseek-chat:free",
       "gpt-4.5-preview",
       "gpt-4.1",
-      "openrouter:openai/gpt-4o-2024-11-20",
-      "openrouter:openai/gpt-4o-2024-08-06",
-      "openrouter:openai/gpt-4o",
-      "openrouter:openai/gpt-4o:free",
+      "openrouter:openai/gpt-4.1",
+      "openrouter:openai/gpt-4.5-preview",
       "claude-3-7-sonnet",
-      "claude-3-5-sonnet",
       "claude-opus-4",
       "openrouter:anthropic/claude-3.7-sonnet",
-      "openrouter:anthropic/claude-3.7-sonnet:free",
-      "openrouter:anthropic/claude-3.5-sonnet",
-      "openrouter:anthropic/claude-3.5-sonnet:free",
+      "openrouter:anthropic/claude-3.7-sonnet:thinking",
+      "openrouter:anthropic/claude-3.7-sonnet:beta",
       "openrouter:anthropic/claude-opus-4",
-      "openrouter:anthropic/claude-opus-4:beta",
-      "openrouter:qwen/qwen-2.5-coder-32b-instruct",
       "openrouter:qwen/qwen-2.5-coder-32b-instruct:free",
       "openrouter:qwen/qwen2.5-coder-7b-instruct",
-      "openrouter:qwen/qwen2.5-coder-7b-instruct:free",
-      "openrouter:qwen/qwen3-235b-a22b",
       "openrouter:qwen/qwen3-235b-a22b:free",
-      "openrouter:qwen/qwen3-32b",
       "openrouter:qwen/qwen3-32b:free",
-      "openrouter:qwen/qwen3-14b",
       "openrouter:qwen/qwen3-14b:free",
-      "openrouter:qwen/qwen3-30b-a3b",
       "openrouter:qwen/qwen3-30b-a3b:free",
       "openrouter:ai21/jamba-1.6-large",
-      "openrouter:ai21/jamba-1.6-large:free",
       "openrouter:ai21/jamba-1.6-mini",
-      "openrouter:ai21/jamba-1.6-mini:free",
-      "openrouter:microsoft/phi-4-reasoning-plus",
       "openrouter:microsoft/phi-4-reasoning-plus:free",
-      "google/gemini-2.5-flash-preview-05-20:thinking",
       "google/gemini-2.5-flash-preview:thinking",
+      "openrouter:google/gemini-2.0-flash-exp:free",
       "openrouter:google/gemini-2.5-flash-preview-05-20",
-      "openrouter:google/gemini-2.5-flash-preview",
-      "openrouter:google/gemini-2.5-flash-preview-05-20:free",
-      "openrouter:google/gemini-2.5-flash-preview:free",
+      "openrouter:google/gemini-2.5-flash-preview-05-20:thinking",
     ];
 
-    // Default model and temperature
-    let selectedModel = "google/gemini-2.5-flash-preview-05-20:thinking"; // Default to one of the newly added models
-    const temperatureValue = 0.3;
+    let selectedModel = "google/gemini-2.5-flash-preview:thinking";
+    let temperatureValue = 0.3; // Initialize with default
 
     function updateChatTitle() {
-      document.title = `Puter.JS: ${selectedModel} (Temp: ${temperatureValue})`;
-      chatTitle.innerHTML = `<a href="https://developer.puter.com/tutorials/" target="_blank">Puter.JS</a>: ${selectedModel} (Temp: ${temperatureValue})`;
+      document.title = `Puter.JS: ${selectedModel} (Temp: ${temperatureValue.toFixed(1)})`;
+      chatTitle.innerHTML = `<a href="https://developer.puter.com/tutorials/" target="_blank">Puter.JS</a>`;
     }
 
     function populateModelSelect() {
@@ -239,7 +265,6 @@
             option.textContent = model;
             modelSelect.appendChild(option);
         });
-        // Set the default selected model
         modelSelect.value = selectedModel;
     }
 
@@ -250,6 +275,13 @@
         console.log(`Model changed to: ${selectedModel}`);
     });
 
+    // Event listener for temperature slider change
+    tempSlider.addEventListener('input', () => {
+        temperatureValue = parseFloat(tempSlider.value);
+        tempDisplay.textContent = temperatureValue.toFixed(1); // Update display
+        updateChatTitle(); // Update title to reflect new temp
+        console.log(`Temperature changed to: ${temperatureValue}`);
+    });
 
     function renderMarkdown(md) {
       const div = document.createElement('div');
@@ -258,7 +290,8 @@
       return div;
     }
 
-    function addMessage(text, sender = 'user', isStreamingPlaceholder = false) {
+    // addMessage now accepts modelInfo
+    function addMessage(text, sender = 'user', isStreamingPlaceholder = false, modelInfo = null) {
       console.log(`Adding message: "${text}" from ${sender}. Is placeholder: ${isStreamingPlaceholder}`);
       const msgDiv = document.createElement('div');
       msgDiv.className = `msg ${sender}`;
@@ -268,35 +301,42 @@
 
       if (text) {
         if (isStreamingPlaceholder) {
-           bubbleElement.innerHTML = text; // Add "Thinking..." directly
-           if (sender === 'ai') { // Only apply thinking style to AI placeholder
-             bubbleElement.classList.add('thinking-bubble'); // ADDED: Apply amber class
+           bubbleElement.innerHTML = text;
+           if (sender === 'ai') {
+             bubbleElement.classList.add('thinking-bubble');
            }
         } else {
           const renderedContent = renderMarkdown(text);
           bubbleElement.appendChild(renderedContent);
 
-          // If it's a completed AI message, add copy buttons to code blocks
           if (sender === 'ai') {
             const codeBlocks = renderedContent.querySelectorAll('pre');
             codeBlocks.forEach(pre => {
               const copyBtn = document.createElement('button');
               copyBtn.className = 'copy-code-btn';
               copyBtn.textContent = '📋 Copy';
-              pre.parentNode.insertBefore(copyBtn, pre.nextSibling); // Insert after the pre element
+              pre.parentNode.insertBefore(copyBtn, pre.nextSibling);
             });
           }
         }
       }
       messagesDiv.appendChild(msgDiv);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
-      return bubbleElement; // Return the bubble element for streaming updates
+
+      // Add model and temperature info for user messages
+      if (sender === 'user' && modelInfo) {
+          const metadataDiv = document.createElement('div');
+          metadataDiv.className = 'metadata';
+          metadataDiv.textContent = `Model: ${modelInfo.model}, Temp: ${modelInfo.temperature.toFixed(1)}`;
+          msgDiv.appendChild(metadataDiv); // Append inside msgDiv, after the bubble
+      }
+
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return bubbleElement;
     }
 
-    // Function to auto-grow the textarea
     function autoGrowTextarea(element) {
-      element.style.height = 'auto'; // Reset height to recalculate scrollHeight
-      element.style.height = element.scrollHeight + 'px'; // Set height to scrollHeight
+      element.style.height = 'auto';
+      element.style.height = element.scrollHeight + 'px';
     }
 
     function updateUnloadBtn() {
@@ -320,8 +360,8 @@
         userInput.value = '';
         userInput.placeholder = 'Type your message or attach a file...';
       }
-      userInput.readOnly = false; // Always ensure it's editable unless explicitly set otherwise
-      autoGrowTextarea(userInput); // Adjust height after updating value
+      userInput.readOnly = false;
+      autoGrowTextarea(userInput);
     }
 
     unloadBtn.onclick = () => {
@@ -337,84 +377,65 @@
     async function sendMessage() {
       console.log("sendMessage called.");
       let text = userInput.value.trim();
-      let userMessageForDisplay = text; // What the user sees they sent
+      let userMessageForDisplay = text;
 
-      // Prepare message parts for the model
       let messageContentForModelParts = [];
 
-      // Add user's typed text as a part if not empty
       if (userMessageForDisplay) {
           messageContentForModelParts.push({ text: userMessageForDisplay });
       }
 
-      // Add file content as a part if a text file is attached
       if (fileContentPrompt) {
           messageContentForModelParts.push({ text: fileContentPrompt });
       }
-      // Add image URL as a part if an image is attached
       else if (attachedImageURL) {
           messageContentForModelParts.push({ image_url: { url: attachedImageURL } });
       }
 
-      // If no text and no file/image, do nothing
       if (messageContentForModelParts.length === 0) {
           console.log("No content to send.");
           return;
       }
 
-      // Clear input field and file state immediately after getting its value
       userInput.value = '';
-      autoGrowTextarea(userInput); // Reset height after clearing
+      autoGrowTextarea(userInput);
 
-      // Clear file state variables after they've been used for this message
       fileContentPrompt = null;
       attachedImageURL = null;
       fileName = null;
       attachedFileSpan.textContent = '';
       updateUnloadBtn();
-      updateUserInputBox(); // Reset input box and state
+      updateUserInputBox();
 
-      // Add the user message to the display (using the text the user saw/typed)
-      addMessage(userMessageForDisplay, 'user');
+      // Pass current model and temperature to addMessage for user messages
+      addMessage(userMessageForDisplay, 'user', false, { model: selectedModel, temperature: temperatureValue });
 
-      // Add the user message content (what was sent to the model) to chat history
-      // For simplicity in chatHistory, we'll store the display text.
-      // For the model API call, we use the structured messageContentForModelParts.
-      chatHistory.push({ role: 'user', content: userMessageForDisplay }); // Store display text for history
+      chatHistory.push({ role: 'user', content: userMessageForDisplay });
 
-      // Check for the specific "wait for my request" command
       if (userMessageForDisplay.toLowerCase() === "wait for my request") {
           console.log("User requested to wait. Responding with 'Awaiting your command.'");
           const aiResponseText = "Awaiting your command.";
           addMessage(aiResponseText, 'ai');
           chatHistory.push({ role: 'assistant', content: aiResponseText });
           console.log("Chat history updated:", chatHistory);
-          return; // Stop here, do not call the AI API
+          return;
       }
 
-      // Build the messages array for the API directly from chatHistory for text-only turns,
-      // and use messageContentForModelParts for the current turn.
       const msgs = [];
       for (const entry of chatHistory) {
-          // For simplicity, assuming chatHistory stores text.
-          // If full multimodal history is needed for the model, chatHistory would need to store parts.
           msgs.push({ role: entry.role, content: entry.content });
       }
-      // Replace the last user message in msgs with the actual structured parts for the current turn
-      // This ensures the model receives the image/file content for the current turn.
       msgs[msgs.length - 1].content = messageContentForModelParts;
-
 
       console.log("Sending message to AI:", msgs);
 
-      // Show AI placeholder and get a reference to its bubble
       const aiBubbleElement = addMessage("<em>Thinking...</em>", 'ai', true);
 
       try {
         const response = await puter.ai.chat(
           msgs,
           {
-              model: selectedModel, // Use the selected model from the dropdown
+              model: selectedModel,
               stream: true,
               temperature: temperatureValue
             }
@@ -425,9 +446,8 @@
         for await (const part of response) {
           if (part?.text) {
             aiText += part.text;
-            // Update the specific AI bubble with streamed content
             if (aiBubbleElement) {
-                aiBubbleElement.innerHTML = ''; // Clear "Thinking..."
+                aiBubbleElement.innerHTML = '';
                 aiBubbleElement.appendChild(renderMarkdown(aiText));
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
@@ -435,11 +455,10 @@
         }
         console.log("AI response stream finished. Final text:", aiText);
 
-        // After streaming is complete, re-render the final AI message to add copy buttons
         if (aiBubbleElement) {
              aiBubbleElement.innerHTML = '';
              aiBubbleElement.appendChild(renderMarkdown(aiText));
-             aiBubbleElement.classList.remove('thinking-bubble'); // REMOVED: Remove amber class
+             aiBubbleElement.classList.remove('thinking-bubble');
              const codeBlocks = aiBubbleElement.querySelectorAll('pre');
              codeBlocks.forEach(pre => {
                const copyBtn = document.createElement('button');
@@ -449,41 +468,42 @@
              });
         }
 
-        // Add the completed AI message to chat history
         chatHistory.push({ role: 'assistant', content: aiText });
         console.log("Chat history updated:", chatHistory);
 
       } catch (e) {
         console.error("Error during AI chat:", e);
         if (aiBubbleElement) {
-            aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${e.message}</span>`;
-            aiBubbleElement.classList.remove('thinking-bubble'); // REMOVED: Remove amber class on error
+            let errorMessage = e.error;
+            if (errorMessage && errorMessage.includes("each message must have a 'content' property")) {
+              errorMessage += " (Refresh this page to clear and reset Pure.JS)";
+            }
+            aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${errorMessage}</span>`;
+            aiBubbleElement.classList.remove('thinking-bubble');
         }
-        chatHistory.push({ role: 'assistant', content: `Error: ${e.message}` });
+        chatHistory.push({ role: 'assistant', content: `Error: ${errorMessage}` });
         console.log("Chat history updated:", chatHistory);
       }
     }
 
     sendBtn.onclick = sendMessage;
 
-    // Use keydown for robust handling of Enter and Shift+Enter
     userInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
-        e.preventDefault(); // Always prevent default Enter behavior
+        e.preventDefault();
 
-        if (e.ctrlKey) { // Ctrl + Enter: Submit
+        if (e.ctrlKey) {
           sendMessage();
-        } else { // Enter or Shift + Enter: Insert newline
+        } else {
           const start = userInput.selectionStart;
           const end = userInput.selectionEnd;
           userInput.value = userInput.value.substring(0, start) + '\n' + userInput.value.substring(end);
           userInput.selectionStart = userInput.selectionEnd = start + 1;
-          autoGrowTextarea(userInput); // Adjust height after inserting newline
+          autoGrowTextarea(userInput);
         }
       }
     });
 
-    // Listen for input events to auto-grow textarea
     userInput.addEventListener('input', () => autoGrowTextarea(userInput));
 
     attachBtn.onclick = () => fileInput.click();
@@ -496,7 +516,7 @@
         return;
       }
       console.log(`Selected file: ${file.name}, type: ${file.type}`);
-      attachedFileSpan.textContent = `Loading: ${file.name}...`; // Show loading indicator
+      attachedFileSpan.textContent = `Loading: ${file.name}...`;
 
       try {
         if (
@@ -542,8 +562,8 @@
         ) {
           console.log("Reading text file.");
           const text = await file.text();
-          fileContentPrompt = text; // Store text content
-          attachedImageURL = null; // Clear any previous image
+          fileContentPrompt = text;
+          attachedImageURL = null;
           fileName = file.name;
           attachedFileSpan.textContent = `Loaded: ${file.name}`;
           console.log(`Text file loaded: ${file.name}`);
@@ -551,18 +571,17 @@
           updateUserInputBox();
         } else if (file.type.startsWith('image/')) {
           console.log("Image file detected. Attempting upload.");
-          // Upload the image to Puter FS
           const uploadedFiles = await puter.fs.upload(e.target.files);
           const uploaded = Array.isArray(uploadedFiles) ? uploadedFiles[0] : uploadedFiles;
 
           if (uploaded && uploaded.url) {
-              attachedImageURL = uploaded.url; // Store the public URL
-              fileContentPrompt = null; // Clear any previous text file
+              attachedImageURL = uploaded.url;
+              fileContentPrompt = null;
               fileName = file.name;
               attachedFileSpan.textContent = `Loaded Image: ${file.name}`;
               console.log(`Image uploaded and URL stored: ${attachedImageURL}`);
               updateUnloadBtn();
-              updateUserInputBox(); // Update input box with image prompt
+              updateUserInputBox();
           } else {
               alert("Image upload failed: No URL returned.");
               console.error("Image upload failed: No URL returned.", uploaded);
@@ -592,16 +611,13 @@
         updateUnloadBtn();
         updateUserInputBox();
       } finally {
-        // Clear the file input value so that selecting the same file again triggers onchange
         e.target.value = '';
       }
     };
 
-    // Add event listener for copy buttons using delegation
     messagesDiv.addEventListener('click', async (event) => {
       if (event.target.classList.contains('copy-code-btn')) {
         const copyBtn = event.target;
-        // Find the preceding pre element
         let preElement = copyBtn.previousElementSibling;
         while(preElement && preElement.tagName !== 'PRE') {
             preElement = preElement.previousElementSibling;
@@ -619,7 +635,7 @@
               copyBtn.textContent = '✅ Copied!';
               setTimeout(() => {
                 copyBtn.textContent = originalText;
-              }, 2000); // Change back after 2 seconds
+              }, 2000);
             } catch (err) {
               console.error("Failed to copy code:", err);
               copyBtn.textContent = '❌ Failed!';
@@ -633,10 +649,13 @@
     });
 
     // Initial state updates
-    populateModelSelect(); // Populate the dropdown on load
+    populateModelSelect();
+    // Initialize temp display with default value
+    tempDisplay.textContent = temperatureValue.toFixed(1);
+    tempSlider.value = temperatureValue; // Set slider to default value
     updateUnloadBtn();
     updateUserInputBox();
-    updateChatTitle(); // Set initial chat title
+    updateChatTitle();
     console.log("Script initialized.");
   </script>
 </body>
