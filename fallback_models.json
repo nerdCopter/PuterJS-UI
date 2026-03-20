@@ -1,0 +1,12 @@
+{
+  "models": [
+    "arcee-ai/trinity-large-preview:free",
+    "liquid/lfm-2.5-1.2b-instruct:free",
+    "liquid/lfm-2.5-1.2b-thinking:free",
+    "google/gemma-3n-e2b-it:free",
+    "qwen/qwen3-4b:free",
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+  ],
+  "lastUpdated": "2026-03-20",
+  "note": "Text/chat models only - removed video/image/other-endpoint models. Filtered from 27 to 6 viable chat candidates."
+}

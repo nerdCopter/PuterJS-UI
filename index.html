@@ -188,8 +188,8 @@
         </div>
         <div id="temperature-setting">
             <label for="temp-slider">Temperature:</label>
-            <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.05" value="0.3">
-            <span id="temp-display">0.3</span>
+            <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.05" value="0.25">
+            <span id="temp-display">0.25</span>
         </div>
     </div>
   </div>
@@ -220,38 +220,51 @@
 
     const fileAnalysisPromptTemplate = (name) => `Analyze \`${name}\` and provide a brief summary of its function.`;
 
-    const availableModels = [
-      "codestral-latest",
-      "openrouter:deepseek/deepseek-v3-base:free",
-      "openrouter:deepseek/deepseek-chat-v3-0324:free",
-      "openrouter:deepseek/deepseek-chat:free",
-      "gpt-4.5-preview",
-      "gpt-4.1",
-      "openrouter:openai/gpt-4.1",
-      "openrouter:openai/gpt-4.5-preview",
-      "claude-3-7-sonnet",
-      "claude-opus-4",
-      "openrouter:anthropic/claude-3.7-sonnet",
-      "openrouter:anthropic/claude-3.7-sonnet:thinking",
-      "openrouter:anthropic/claude-3.7-sonnet:beta",
-      "openrouter:anthropic/claude-opus-4",
-      "openrouter:qwen/qwen-2.5-coder-32b-instruct:free",
-      "openrouter:qwen/qwen2.5-coder-7b-instruct",
-      "openrouter:qwen/qwen3-235b-a22b:free",
-      "openrouter:qwen/qwen3-32b:free",
-      "openrouter:qwen/qwen3-14b:free",
-      "openrouter:qwen/qwen3-30b-a3b:free",
-      "openrouter:ai21/jamba-1.6-large",
-      "openrouter:ai21/jamba-1.6-mini",
-      "openrouter:microsoft/phi-4-reasoning-plus:free",
-      "google/gemini-2.5-flash-preview:thinking",
-      "openrouter:google/gemini-2.0-flash-exp:free",
-      "openrouter:google/gemini-2.5-flash-preview-05-20",
-      "openrouter:google/gemini-2.5-flash-preview-05-20:thinking",
-    ];
+    // Will be populated from Puter.JS API in real-time
+    let availableModels = [];
 
-    let selectedModel = "google/gemini-2.5-flash-preview:thinking";
-    let temperatureValue = 0.3; // Initialize with default
+    let selectedModel = "arcee-ai/trinity-large-preview:free"; // Free Puter.JS model
+    let temperatureValue = 0.25; // Initialize with default
+
+    // Load models from fallback_models.json (primary source - reliable)
+    async function loadModelsFromPuterAPI() {
+      try {
+        console.log("Loading models from fallback_models.json...");
+        const localResponse = await fetch('fallback_models.json');
+        
+        if (!localResponse.ok) {
+          throw new Error(`Fallback fetch failed with status ${localResponse.status}`);
+        }
+        
+        const localData = await localResponse.json();
+        console.log(`Fallback JSON parsed. Keys: ${Object.keys(localData)}`);
+        
+        if (!Array.isArray(localData.models)) {
+          throw new Error(`Invalid fallback format: expected .models array`);
+        }
+        
+        availableModels = localData.models;
+        console.log(`✓ Loaded ${availableModels.length} models from fallback_models.json`);
+        return;
+        
+      } catch (error) {
+        console.error('FATAL: Could not load models from fallback_models.json:', error);
+        throw error;
+      }
+    }
+
+    // Set default model if not in the loaded list
+    function ensureValidSelectedModel() {
+      console.log(`ensureValidSelectedModel: availableModels.length = ${availableModels.length}`);
+      if (availableModels.length === 0) {
+        console.error("ERROR: No models available in availableModels");
+        throw new Error("availableModels is empty - cannot select a model");
+      }
+      if (!availableModels.includes(selectedModel)) {
+        selectedModel = availableModels[0];
+        console.log(`Selected model not in list, reset to: ${selectedModel}`);
+      }
+    }
 
     function updateChatTitle() {
       document.title = `Puter.JS: ${selectedModel} (Temp: ${temperatureValue.toFixed(1)})`;
@@ -479,24 +492,29 @@
                 if (typeof e.error === 'string') {
                     errorMessage = e.error;
                 } else if (typeof e.error === 'object' && e.error.error) {
-                    // This handles the case where e.error is { success: false, error: "Actual error message" }
                     errorMessage = e.error.error;
                 } else {
-                    // Fallback for other object structures or if e.error.error is not a string
                     errorMessage = JSON.stringify(e.error);
                 }
-            } else if (e && e.message) { // Standard JavaScript error message
+            } else if (e && e.message) {
                 errorMessage = e.message;
             } else {
                 errorMessage = "An unknown error occurred.";
             }
 
-            // Ensure errorMessage is a string before calling .includes()
             errorMessage = String(errorMessage);
 
-            if (errorMessage.includes("each message must have a 'content' property")) {
-              errorMessage += " (Refresh this page to clear and reset Pure.JS)";
+            // Provide helpful suggestions for common errors
+            if (errorMessage.includes("Model not found")) {
+              errorMessage += ` - Try using arcee-ai/trinity-large-preview:free which is known to work. Check https://developer.puter.com/ai/models/ for available chat models.`;
             }
+            if (errorMessage.includes("no fallback model available")) {
+              errorMessage = `No fallback available - try a different model from the dropdown. Known working: arcee-ai/trinity-large-preview:free`;
+            }
+            if (errorMessage.includes("each message must have a 'content' property")) {
+              errorMessage += " (Refresh this page to clear and reset Puter.JS)";
+            }
+            
             aiBubbleElement.innerHTML = `<span style="color:red;">Error: ${errorMessage}</span>`;
             aiBubbleElement.classList.remove('thinking-bubble');
         }
@@ -668,13 +686,22 @@
     });
 
     // Initial state updates
-    populateModelSelect();
+    // Load models from Puter.JS API (primary) or fallback_models.json (secondary)
+    loadModelsFromPuterAPI().then(() => {
+      ensureValidSelectedModel();
+      populateModelSelect();
+      updateChatTitle();
+      console.log("Models loaded successfully.");
+    }).catch(err => {
+      console.error("Failed to load models:", err);
+      alert("Error: Could not load models from API or fallback_models.json. Please refresh the page.");
+    });
+
     // Initialize temp display with default value
-    tempDisplay.textContent = temperatureValue.toFixed(1);
+    tempDisplay.textContent = temperatureValue.toFixed(2);
     tempSlider.value = temperatureValue; // Set slider to default value
     updateUnloadBtn();
     updateUserInputBox();
-    updateChatTitle();
     console.log("Script initialized.");
   </script>
 </body>
